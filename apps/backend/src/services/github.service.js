@@ -1,24 +1,26 @@
+import axios from 'axios';
 import { env } from '../config/env.js';
 
-const GITHUB_API_URL = 'https://api.github.com';
+const githubApi = axios.create({
+  baseURL: 'https://api.github.com',
+  timeout: 10_000,
+  headers: {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    ...(env.githubToken ? { Authorization: `Bearer ${env.githubToken}` } : {}),
+  },
+});
 
 async function githubFetch(path) {
-  const response = await fetch(`${GITHUB_API_URL}${path}`, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      ...(env.githubToken ? { Authorization: `Bearer ${env.githubToken}` } : {}),
-    },
-  });
-
-  if (!response.ok) {
+  try {
+    const response = await githubApi.get(path);
+    return response.data;
+  } catch (axiosError) {
     const error = new Error('GitHub no pudo completar la consulta.');
-    error.status = response.status;
-    error.details = await response.json().catch(() => null);
+    error.status = axiosError.response?.status;
+    error.details = axiosError.response?.data;
     throw error;
   }
-
-  return response.json();
 }
 
 export async function getUserWithRepositories(username) {
